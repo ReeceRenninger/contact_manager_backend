@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "OVhjcPkU0B4=",
+  "success": true,
+  "projectFilePath": "E:\\Users\\Buttercup\\Source\\Repos\\contact_manager_backend\\contact_manager_backend.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\Buttercup\\.nuget\\packages\\microsoft.aspnetcore.openapi\\9.0.0\\microsoft.aspnetcore.openapi.9.0.0.nupkg.sha512",
+    "C:\\Users\\Buttercup\\.nuget\\packages\\microsoft.openapi\\1.6.17\\microsoft.openapi.1.6.17.nupkg.sha512"
+  ],
+  "logs": []
+}
