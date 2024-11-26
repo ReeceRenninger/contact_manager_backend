@@ -1,6 +1,6 @@
 @contact_manager_backend_HostAddress = http://localhost:5272
 
-GET {{contact_manager_backend_HostAddress}}/weatherforecast/
+GET {{contact_manager_backend_HostAddress}}/contact/
 Accept: application/json
 
 ###
