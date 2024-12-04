@@ -3,6 +3,17 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+// was receiving a cors policy error on front end 
+// No 'Access-Control-Allow-Origin' header is present on required resource
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(builder =>
+    {
+        builder.WithOrigins("http://localhost:3000") // mock front end for local use
+               .AllowAnyHeader()
+               .AllowAnyMethod();
+    });
+});
 
 var app = builder.Build();
 
@@ -13,6 +24,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseCors(); // need to call cors before any endpoint call
 
 var contacts = new List<Contact>
 {
@@ -20,8 +32,13 @@ var contacts = new List<Contact>
     new Contact { Id = 2, Name = "Jane Smith", Email = "jane.smith@example.com", Phone = "111-111-1111" }
 };
 
-app.ContactGet("/contacts", () => contacts)
-    .WithName("GetContacts");
+app.ContactGet("/contacts", () =>
+{
+    Console.WriteLine("Returning contacts:");
+    contacts.ForEach(contact => Console.WriteLine($"{contact.Id}, {contact.Name}, {contact.Email}, {contact.Phone}"));
+    return contacts;
+})
+.WithName("GetContacts");
 
 app.ContactGet("/contacts/{id}", (int id) =>
 {
