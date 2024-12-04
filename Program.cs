@@ -3,6 +3,17 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+// was receiving a cors policy error on front end 
+// No 'Access-Control-Allow-Origin' header is present on required resource
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(builder =>
+    {
+        builder.WithOrigins("http://localhost:3000") // mock front end for local use
+               .AllowAnyHeader()
+               .AllowAnyMethod();
+    });
+});
 
 var app = builder.Build();
 
@@ -13,15 +24,21 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseCors(); // need to call cors before any endpoint call
 
 var contacts = new List<Contact>
 {
     new Contact { Id = 1, Name = "John Doe", Email = "john.doe@example.com", Phone = "123-456-7890" },
-    new Contact { Id = 2, Name = "Jane Smith", Email = "jane.smith@example.com" Phone = "111-111-1111",
+    new Contact { Id = 2, Name = "Jane Smith", Email = "jane.smith@example.com", Phone = "111-111-1111" }
 };
 
-app.ContactGet("/contacts", () => contacts)
-    .WithName("GetContacts");
+app.ContactGet("/contacts", () =>
+{
+    Console.WriteLine("Returning contacts:");
+    contacts.ForEach(contact => Console.WriteLine($"{contact.Id}, {contact.Name}, {contact.Email}, {contact.Phone}"));
+    return contacts;
+})
+.WithName("GetContacts");
 
 app.ContactGet("/contacts/{id}", (int id) =>
 {
@@ -64,7 +81,7 @@ app.ContactDelete("/contacts/{id}", (int id) =>
     contacts.Remove(contact);
     return Results.NoContent();
 })
-.WithName("DeleteContact")
+.WithName("DeleteContact");
 
 app.Run();
 
