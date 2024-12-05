@@ -1,19 +1,22 @@
+using Microsoft.EntityFrameworkCore;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
-// was receiving a cors policy error on front end 
-// No 'Access-Control-Allow-Origin' header is present on required resource
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(builder =>
     {
-        builder.WithOrigins("http://localhost:3000") // mock front end for local use
+        builder.WithOrigins("http://localhost:3000")
                .AllowAnyHeader()
                .AllowAnyMethod();
     });
 });
+
+// Configure EF Core with SQL Server
+builder.Services.AddDbContext<ContactContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 var app = builder.Build();
 
@@ -24,73 +27,76 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseCors(); // need to call cors before any endpoint call
+app.UseCors();
 
-var contacts = new List<Contact>
+// Ensure the database is created
+using (var scope = app.Services.CreateScope())
 {
-    new Contact { Id = 1, Name = "John Doe", Email = "john.doe@example.com", Phone = "123-456-7890" },
-    new Contact { Id = 2, Name = "Jane Smith", Email = "jane.smith@example.com", Phone = "111-111-1111" }
-};
+    var dbContext = scope.ServiceProvider.GetRequiredService<ContactContext>();
+    dbContext.Database.EnsureCreated();
+}
 
-app.ContactGet("/contacts", () =>
+app.MapGet("/contacts", async (ContactContext db) =>
 {
-    Console.WriteLine("Returning contacts:");
-    contacts.ForEach(contact => Console.WriteLine($"{contact.Id}, {contact.Name}, {contact.Email}, {contact.Phone}"));
-    return contacts;
+    return await db.Contacts.ToListAsync();
 })
 .WithName("GetContacts");
 
-app.ContactGet("/contacts/{id}", (int id) =>
+app.MapGet("/contacts/{id}", async (int id, ContactContext db) =>
 {
-    var contact = contacts.FirstOrDefault(c => c.Id == id);
-    if (contact == null)
-    {
-        return Results.NotFound();
-    }
-    return Results.Ok(contact);
+    var contact = await db.Contacts.FindAsync(id);
+    return contact is not null ? Results.Ok(contact) : Results.NotFound();
 })
 .WithName("GetContactById");
 
-app.ContactPost("/contacts", (Contact contact) =>
+app.MapPost("/contacts", async (Contact contact, ContactContext db) =>
 {
-    contact.Id = contacts.Max(c => c.Id) + 1;
-    contacts.Add(contact);
+    db.Contacts.Add(contact);
+    await db.SaveChangesAsync();
     return Results.Created($"/contacts/{contact.Id}", contact);
 })
 .WithName("CreateContact");
 
-app.ContactPut("/contacts/{id}", (int id, Contact contact) =>
+app.MapPut("/contacts/{id}", async (int id, Contact updatedContact, ContactContext db) =>
 {
-    var existingContact = contacts.FirstOrDefault(c => c.Id == id);
-    if (existingContact == null)
-    {
-        return Results.NotFound();
-    }
-    existingContact.Name = contact.Name;
-    existingContact.Email = contact.Email;
-    existingContact.Phone = contact.Phone;
-    return Results.Ok(existingContact);
+    var contact = await db.Contacts.FindAsync(id);
+    if (contact is null) return Results.NotFound();
+
+    contact.Name = updatedContact.Name;
+    contact.Email = updatedContact.Email;
+    contact.Phone = updatedContact.Phone;
+
+    await db.SaveChangesAsync();
+    return Results.Ok(contact);
 })
 .WithName("UpdateContact");
 
-app.ContactDelete("/contacts/{id}", (int id) =>
+app.MapDelete("/contacts/{id}", async (int id, ContactContext db) =>
 {
-    var contact = contacts.FirstOrDefault(c => c.Id == id);
+    var contact = await db.Contacts.FindAsync(id);
     if (contact is null) return Results.NotFound();
 
-    contacts.Remove(contact);
+    db.Contacts.Remove(contact);
+    await db.SaveChangesAsync();
     return Results.NoContent();
 })
 .WithName("DeleteContact");
 
 app.Run();
 
-record Contact
+public record Contact
 {
     public int Id { get; set; }
     public string Name { get; set; }
     public string Email { get; set; }
     public string Phone { get; set; }
+}
+
+public class ContactContext : DbContext
+{
+    public ContactContext(DbContextOptions<ContactContext> options) : base(options) { }
+
+    public DbSet<Contact> Contacts { get; set; }
 }
 
 public static class ContactEndpointRouteBuilderExtensions
@@ -115,3 +121,4 @@ public static class ContactEndpointRouteBuilderExtensions
         return endpoints.MapDelete(pattern, handler);
     }
 }
+
